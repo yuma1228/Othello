@@ -27,7 +27,7 @@ class MctsNode:
         N = 1
         for i in range(len(self.parents[-1].children)):
             N += self.parents[-1].children[i].chosen
-        return self.wins/(self.chosen+1)+ math.sqrt(2*math.log(N)/(self.chosen+1))
+        return (self.chosen - self.wins)/(self.chosen+1)+ math.sqrt(2*math.log(N)/(self.chosen+1))
     
     def choise_best_child(self)->Self:
         best_child:Self = None
@@ -66,6 +66,6 @@ class MctsNode:
         if winner == self.state.color:
             self.wins += 1
         for parent in self.parents:
-                if parent.state.color == self.state.color:
-                    parent.wins += 1
-                parent.chosen += 1
+            if winner == parent.state.color:
+                parent.wins += 1
+            parent.chosen += 1

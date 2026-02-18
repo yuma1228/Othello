@@ -116,8 +116,9 @@ class SizedOthello:
             white: Callable[[Self, int], tuple[int, int]] = terminal_play,
             do_print: bool = True,
             guide: bool = True,
+            first_color: int = 1,
     ) -> int:  # O(N^6*player)=2.6*10^6*player
-        self.color = 1
+        self.color = first_color
         while self.winner() is None:
             if do_print:
                 self.print(guide)
@@ -136,4 +137,5 @@ class SizedOthello:
         for y in range(o.size):
             for x in range(o.size):
                 o.board[y][x] = self.board[y][x]
+        o.color = self.color
         return o

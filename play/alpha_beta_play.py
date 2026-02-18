@@ -1,6 +1,5 @@
 from sys import setrecursionlimit
 
-from OthelloEnv import decode_state
 from othello import Othello, from_history
 from evaluate import evaluate_board_ngn
 from math import inf

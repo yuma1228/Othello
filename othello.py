@@ -126,7 +126,8 @@ class Othello:
         white:Callable[[Self, int], tuple[int, int]] | Agent = terminal_play,
         do_print: bool = True,
         guide: bool = True,
-        first_color:int = 1
+        first_color:int = 1,
+
     ) -> int:  # O(N^6*player)=2.6*10^6*player
         self.color=first_color
         while self.winner() is None:
@@ -141,6 +142,12 @@ class Othello:
             self.history.append((x, y))
             self.color = 3 - self.color
         return self.winner()
+    
+    
+            
+            
+    
+    
     
     def copy(self)->Self:
         o=Othello()

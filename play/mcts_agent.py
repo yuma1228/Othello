@@ -5,7 +5,10 @@ import math
 from play.mcts import MctsNode
 import numpy as np
 def mcts_agent(othello:Othello,color:int):
-    root_node=MctsNode([],othello)
+    copy_othello = othello.copy()
+    copy_othello.color = color
+    root_node=MctsNode([],copy_othello)
+    root_node.expand()
     for i in range(100):
         root_node.search_node_must_be_playouted().playout()
     #root_node.print_tree(0)
