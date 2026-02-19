@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>オセロ</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      letter-spacing: 0.2em;
+      margin-bottom: 24px;
+      color: #f8fafc;
+    }
+
+    /* ===== レイアウト ===== */
+    .game-wrap {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ===== 盤面エリア ===== */
+    .board-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* スコア */
+    .scoreboard {
+      display: flex;
+      gap: 32px;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .score-item { display: flex; align-items: center; gap: 10px; }
+    .stone-chip {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stone-chip.black { background: radial-gradient(circle at 35% 35%, #555, #111); border: 2px solid #555; }
+    .stone-chip.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); border: 2px solid #aaa; }
+    .you-label {
+      font-size: 0.65rem;
+      background: #3b82f6;
+      color: white;
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* 盤面 */
+    .board-container { position: relative; }
+
+    #board {
+      display: grid;
+      background: #14532d;
+      border: 4px solid #052e16;
+      border-radius: 4px;
+      gap: 2px;
+      padding: 2px;
+    }
+
+    .cell {
+      background: #166534;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: default;
+      transition: background 0.12s;
+      border-radius: 2px;
+    }
+    .cell.clickable { cursor: pointer; }
+    .cell.clickable:hover { background: #15803d; }
+    .cell.last-move { background: #1a7a40; }
+
+    /* 合法手のドット */
+    .cell.valid-move::after {
+      content: '';
+      width: 28%;
+      height: 28%;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.28);
+      pointer-events: none;
+    }
+    .cell.clickable.valid-move:hover::after {
+      background: rgba(255, 255, 255, 0.45);
+    }
+
+    /* 石 */
+    .stone {
+      border-radius: 50%;
+      position: absolute;
+      animation: placeStone 0.18s ease-out;
+    }
+    .stone.black {
+      background: radial-gradient(circle at 35% 35%, #666, #111);
+      box-shadow: 2px 3px 6px rgba(0,0,0,0.6);
+    }
+    .stone.white {
+      background: radial-gradient(circle at 35% 35%, #fff, #ccc);
+      box-shadow: 2px 3px 6px rgba(0,0,0,0.35);
+    }
+
+    @keyframes placeStone {
+      from { transform: scale(0.5); opacity: 0.4; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    /* ローディングオーバーレイ */
+    .board-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      z-index: 10;
+    }
+    .board-overlay.hidden { display: none; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top-color: #4ade80;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ステータスバー */
+    .status-bar {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.07);
+      min-width: 240px;
+      text-align: center;
+      letter-spacing: 0.03em;
+    }
+    .status-bar.winner { background: rgba(250,204,21,0.15); color: #fde047; }
+    .status-bar.my-turn { background: rgba(74,222,128,0.12); color: #86efac; }
+    .status-bar.ai-turn { color: #94a3b8; }
+
+    /* ===== サイドパネル ===== */
+    .side-panel {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 22px 20px;
+      width: 220px;
+    }
+    .side-panel h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #64748b;
+      margin-bottom: 18px;
+    }
+
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+    }
+    select:focus { border-color: #3b82f6; }
+    option { background: #1e293b; }
+
+    .btn-new {
+      width: 100%;
+      padding: 11px;
+      background: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 6px;
+      letter-spacing: 0.05em;
+      transition: background 0.15s;
+    }
+    .btn-new:hover { background: #15803d; }
+    .btn-new:active { background: #166534; }
+
+    /* 凡例 */
+    .legend {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .legend p { font-size: 0.75rem; color: #475569; margin-bottom: 4px; }
+    .legend-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.78rem; color: #64748b; }
+    .legend-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: rgba(255,255,255,0.3); flex-shrink: 0;
+    }
+    .legend-last {
+      width: 14px; height: 14px; border-radius: 2px;
+      background: #1a7a40; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>オセロ</h1>
+
+  <div class="game-wrap">
+    <!-- 盤面エリア -->
+    <div class="board-area">
+      <div class="scoreboard">
+        <div class="score-item">
+          <div class="stone-chip black"></div>
+          <span id="black-score">2</span>
+          <span id="black-you" class="you-label" style="display:none">あなた</span>
+        </div>
+        <div class="score-item">
+          <div class="stone-chip white"></div>
+          <span id="white-score">2</span>
+          <span id="white-you" class="you-label" style="display:none">あなた</span>
+        </div>
+      </div>
+
+      <div class="board-container">
+        <div id="board"></div>
+        <div id="overlay" class="board-overlay hidden">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <div id="status" class="status-bar">ゲームを開始してください</div>
+    </div>
+
+    <!-- サイドパネル -->
+    <div class="side-panel">
+      <h2>設定</h2>
+
+      <div class="field">
+        <label>ボードサイズ</label>
+        <select id="sel-size">
+          <option value="8">8 × 8（標準）</option>
+          <option value="6">6 × 6</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>あなたの色</label>
+        <select id="sel-color">
+          <option value="1">黒（先手）</option>
+          <option value="2">白（後手）</option>
+          <option value="0">両方（人間 vs 人間）</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>対戦相手 AI</label>
+        <select id="sel-ai">
+          <option value="mcts">MCTS AI</option>
+          <option value="random">ランダム</option>
+          <option value="alphazero">AlphaZero（6×6 専用）</option>
+          <option value="human">なし（人間 vs 人間）</option>
+        </select>
+      </div>
+
+      <button class="btn-new" onclick="startNewGame()">新規ゲーム</button>
+
+      <div class="legend">
+        <p>凡例</p>
+        <div class="legend-row"><div class="legend-dot"></div> 置ける場所</div>
+        <div class="legend-row"><div class="legend-last"></div> 直前の着手</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gameId = null;
+    let playerColor = 1;
+    let boardSize = 8;
+    let thinking = false;
+
+    /* ===== 新規ゲーム ===== */
+    async function startNewGame() {
+      const size   = parseInt(document.getElementById('sel-size').value);
+      const color  = parseInt(document.getElementById('sel-color').value);
+      const aiType = document.getElementById('sel-ai').value;
+
+      playerColor = color;
+      boardSize   = size;
+      thinking    = false;
+
+      showOverlay(true);
+      setStatus('', '');
+
+      try {
+        const res = await fetch('/api/new_game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ board_size: size, player_color: color, ai_type: aiType }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('エラー: ' + data.detail); showOverlay(false); return; }
+        gameId = data.game_id;
+        renderState(data);
+      } catch (e) {
+        alert('通信エラー: ' + e.message);
+      } finally {
+        showOverlay(false);
+      }
+    }
+
+    /* ===== 着手 ===== */
+    async function makeMove(x, y) {
+      if (!gameId || thinking) return;
+      thinking = true;
+      showOverlay(true);
+
+      try {
+        const res = await fetch(`/api/move/${gameId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x, y }),
+        });
+        const data = await res.json();
+        if (!res.ok) { console.warn(data.detail); return; }
+        renderState(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        thinking = false;
+        showOverlay(false);
+      }
+    }
+
+    /* ===== 描画 ===== */
+    function renderState(state) {
+      renderYouLabels(state);
+      renderScore(state);
+      renderBoard(state);
+      renderStatus(state);
+    }
+
+    function renderYouLabels(state) {
+      document.getElementById('black-you').style.display =
+        (state.player_color === 1) ? 'inline' : 'none';
+      document.getElementById('white-you').style.display =
+        (state.player_color === 2) ? 'inline' : 'none';
+    }
+
+    function renderScore(state) {
+      document.getElementById('black-score').textContent = state.black_count;
+      document.getElementById('white-score').textContent = state.white_count;
+    }
+
+    function renderBoard(state) {
+      const board = document.getElementById('board');
+      const size  = state.board_size;
+      const cell  = size === 6 ? 72 : 60;   // px
+
+      board.style.gridTemplateColumns = `repeat(${size}, ${cell}px)`;
+      board.innerHTML = '';
+
+      const validSet = new Set(state.possible_puts.map(([x, y]) => `${x},${y}`));
+      const isMyTurn = state.winner == null &&
+        (state.player_color === 0 || state.current_color === state.player_color);
+
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const div = document.createElement('div');
+          div.className = 'cell';
+          div.style.width  = cell + 'px';
+          div.style.height = cell + 'px';
+
+          const val = state.board[y][x];
+          const isLast  = state.last_move &&
+            state.last_move[0] === x && state.last_move[1] === y;
+          const isValid = validSet.has(`${x},${y}`) && isMyTurn;
+
+          if (isLast)  div.classList.add('last-move');
+          if (isValid) div.classList.add('valid-move');
+
+          if (val !== 0) {
+            const stone = document.createElement('div');
+            stone.className = 'stone ' + (val === 1 ? 'black' : 'white');
+            stone.style.width  = (cell - 10) + 'px';
+            stone.style.height = (cell - 10) + 'px';
+            div.appendChild(stone);
+          } else if (isValid) {
+            div.classList.add('clickable');
+            div.addEventListener('click', () => makeMove(x, y));
+          }
+
+          board.appendChild(div);
+        }
+      }
+    }
+
+    function renderStatus(state) {
+      const el = document.getElementById('status');
+
+      if (state.winner != null) {
+        el.className = 'status-bar winner';
+        if (state.winner === 0) {
+          el.textContent = '引き分け！';
+        } else if (state.player_color !== 0 && state.winner === state.player_color) {
+          el.textContent = 'あなたの勝ち！';
+        } else if (state.player_color !== 0) {
+          el.textContent = 'AIの勝ち…';
+        } else {
+          el.textContent = (state.winner === 1 ? '黒' : '白') + 'の勝ち！';
+        }
+        return;
+      }
+
+      const colorName = state.current_color === 1 ? '黒' : '白';
+      if (state.player_color === 0) {
+        el.className = 'status-bar my-turn';
+        el.textContent = colorName + 'の番';
+      } else if (state.current_color === state.player_color) {
+        el.className = 'status-bar my-turn';
+        el.textContent = `あなたの番（${colorName}）`;
+      } else {
+        el.className = 'status-bar ai-turn';
+        el.textContent = `AIの番（${colorName}）`;
+      }
+
+      if (state.skipped) {
+        el.textContent += '　※ 前のターンはパスされました';
+      }
+    }
+
+    function setStatus(text, cls) {
+      const el = document.getElementById('status');
+      el.className = 'status-bar ' + cls;
+      el.textContent = text;
+    }
+
+    function showOverlay(show) {
+      document.getElementById('overlay').classList.toggle('hidden', !show);
+    }
+
+    /* ===== 初期描画（空盤面） ===== */
+    (function initEmptyBoard() {
+      const board = document.getElementById('board');
+      const size  = 8;
+      const cell  = 60;
+      board.style.gridTemplateColumns = `repeat(${size}, ${cell}px)`;
+      const init = [
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,2,1,0,0,0],
+        [0,0,0,1,2,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0],
+      ];
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const div = document.createElement('div');
+          div.className = 'cell';
+          div.style.width  = cell + 'px';
+          div.style.height = cell + 'px';
+          const val = init[y][x];
+          if (val !== 0) {
+            const stone = document.createElement('div');
+            stone.className = 'stone ' + (val === 1 ? 'black' : 'white');
+            stone.style.width  = (cell - 10) + 'px';
+            stone.style.height = (cell - 10) + 'px';
+            div.appendChild(stone);
+          }
+          board.appendChild(div);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
